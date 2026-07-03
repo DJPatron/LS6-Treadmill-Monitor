@@ -26,6 +26,7 @@ import asyncio
 import math
 import struct
 import sys
+from datetime import datetime
 
 from bleak import BleakScanner, BleakClient
 
@@ -37,8 +38,8 @@ SUPPORTED_SPEEDS_CHAR_UUID = "00002ad4-0000-1000-8000-00805f9b34fb"
 
 REQUEST_CONTROL_OPCODE = bytes([0x00])
 
-DEFAULT_WEIGHT_KG = 92.0
-DEFAULT_INCLINATION_DEGREE = 2.3880155
+DEFAULT_WEIGHT_KG = 91.0
+DEFAULT_INCLINATION_DEGREE = 2.3
 
 
 def parse_treadmill_data(data: bytes) -> dict:
@@ -160,7 +161,21 @@ async def main():
     prev_time_s = 0
     last_display = None
     disconnected_printed = False
+    training_saved = False
     disconnect_event = asyncio.Event()
+
+    def write_training():
+        (speed, dist, now_s, kcal, elev) = last_display
+        line = (
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            f"  Speed: {speed:5.1f} km/h  |  "
+            f"Distance: {dist:6.2f} km  |  "
+            f"Time: {fmt_time(now_s)}  |  "
+            f"Calories: {kcal:5.0f} kcal  |  "
+            f"Elevation: {elev:5.0f} m\n"
+        )
+        with open("trainings.txt", "a") as f:
+            f.write(line)
 
     def freeze_line():
         (speed, dist, now_s, kcal, elev) = last_display
@@ -175,7 +190,7 @@ async def main():
         )
 
     def notification_handler(sender, data: bytes):
-        nonlocal cumulative_kcal, prev_time_s, last_display, disconnected_printed
+        nonlocal cumulative_kcal, prev_time_s, last_display, disconnected_printed, training_saved
 
         parsed = parse_treadmill_data(data)
         if not parsed:
@@ -190,6 +205,9 @@ async def main():
                 if not disconnected_printed:
                     print("\nTreadmill disconnected — showing last readings:")
                     disconnected_printed = True
+                    if not training_saved:
+                        write_training()
+                        training_saved = True
                 freeze_line()
             return
 
@@ -244,9 +262,15 @@ async def main():
 
         await disconnect_event.wait()
         print("\nBLE connection lost.")
+        if not training_saved and last_display is not None:
+            write_training()
+            training_saved = True
 
     except KeyboardInterrupt:
         print("\n\nStopping …")
+        if not training_saved and last_display is not None:
+            write_training()
+            training_saved = True
     except Exception as e:
         print(f"\nError: {e}")
     finally:
