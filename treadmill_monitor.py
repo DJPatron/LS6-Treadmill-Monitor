@@ -176,6 +176,7 @@ async def main():
         )
         with open("trainings.txt", "a") as f:
             f.write(line)
+        print(f"  -> Readings saved to trainings.txt")
 
     def freeze_line():
         (speed, dist, now_s, kcal, elev) = last_display
