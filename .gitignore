@@ -2,3 +2,4 @@ AGENTS.md
 conversations/
 last_readings.txt
 trainings.txt
+__pycache__/
