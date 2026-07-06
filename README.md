@@ -33,21 +33,25 @@ deactivate
 
 ## How Calories Are Calculated
 
-The current formula uses MET values for walking on **flat surfaces**:
+Calories are computed using the ACSM metabolic equations, which account for both
+**speed** and **treadmill incline**:
 
-| Speed        | MET |
-|--------------|-----|
-| < 3.2 km/h   | 2.5 |
-| 3.2-4.0 km/h | 3.0 |
-| 4.0-5.6 km/h | 3.5 |
-| > 5.6 km/h   | 4.0 |
+- Walking (≤ 6 km/h):
+  `VO₂ = 0.1 × S + 1.8 × S × G + 3.5`
+- Running (≥ 6.1 km/h):
+  `VO₂ = 0.2 × S + 0.9 × S × G + 3.5`
+
+Where:
+- `S` = speed in m/min (km/h × 1000 / 60)
+- `G` = grade = tan(incline angle)
+- `MET = VO₂ / 3.5`
 
 Calories: `(MET - 1) * weight(kg) * time(h)`
 
 ## TODO
 
 - [x] **Calculate elevation gain based on entered incline angle**
-- [ ] **Calculate calories taking incline into account**
+- [x] **Calculate calories taking incline into account**
 - [x] **Write last metrics to a file after disconnecting from the treadmill**
 
 ## Acknowledgements

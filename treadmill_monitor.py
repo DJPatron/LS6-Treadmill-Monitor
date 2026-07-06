@@ -17,13 +17,6 @@ REQUEST_CONTROL_OPCODE = bytes([0x00])
 DEFAULT_WEIGHT_KG = 91.0
 DEFAULT_INCLINATION_DEG = 2.3
 
-MET_TABLE = [
-    (3.2, 2.5),
-    (4.0, 3.0),
-    (5.6, 3.5),
-    (float("inf"), 4.0),
-]
-
 
 def parse_treadmill_data(data: bytes) -> dict:
     if len(data) < 15:
@@ -35,13 +28,17 @@ def parse_treadmill_data(data: bytes) -> dict:
     }
 
 
-def kcal_per_second(speed_kmh: float, weight_kg: float) -> float:
+def kcal_per_second(speed_kmh: float, weight_kg: float, inclination_deg: float) -> float:
     if speed_kmh <= 0:
         return 0.0
-    for limit, met in MET_TABLE:
-        if speed_kmh < limit:
-            return (met - 1.0) * weight_kg / 3600.0
-    return 0.0
+    speed_m_min = speed_kmh * 1000.0 / 60.0
+    grade = math.tan(math.radians(inclination_deg))
+    if speed_kmh <= 6.0:
+        vo2 = 0.1 * speed_m_min + 1.8 * speed_m_min * grade + 3.5
+    else:
+        vo2 = 0.2 * speed_m_min + 0.9 * speed_m_min * grade + 3.5
+    met = vo2 / 3.5
+    return (met - 1.0) * weight_kg / 3600.0
 
 
 def fmt_time(s: int) -> str:
@@ -155,7 +152,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
         disconnected_printed = False
 
         if now_s > prev_time_s:
-            cumulative_kcal += kcal_per_second(speed, weight_kg) * (now_s - prev_time_s)
+            cumulative_kcal += kcal_per_second(speed, weight_kg, inclination_deg) * (now_s - prev_time_s)
             prev_time_s = now_s
 
         elevation_m = dist * 1000 * math.sin(math.radians(inclination_deg))
