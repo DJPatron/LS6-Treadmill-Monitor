@@ -53,6 +53,9 @@ Calories: `(MET - 1) * weight(kg) * time(h)`
 - [x] **Calculate elevation gain based on entered incline angle**
 - [x] **Calculate calories taking incline into account**
 - [x] **Write last metrics to a file after disconnecting from the treadmill**
+- [x] **Persistent settings — save and restore weight & incline across sessions**
+- [x] **Live MET gauge — real-time MET value in display**
+- [x] **Connection animation — spinner during BLE scan and connection**
 
 ## Acknowledgements
 
