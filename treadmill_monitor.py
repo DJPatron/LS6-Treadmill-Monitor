@@ -77,18 +77,22 @@ def fmt_time(s: int) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
-def display_line(speed, dist, time_s, kcal, elev, met, suffix=" ", max_speed=None) -> str:
+def display_line(speed, dist, time_s, kcal, elev, met, suffix=" ", max_speed=None, max_met=None) -> str:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if max_speed is not None:
         speed_part = f"Speed max: {max_speed:5.1f} km/h  |  "
     else:
         speed_part = f"Speed: {speed:5.1f} km/h  |  "
+    if max_met is not None:
+        met_part = f"MET max: {max_met:4.1f}  |  "
+    else:
+        met_part = f"MET: {met:4.1f}  |  "
     return (
         f"{now}  {speed_part}"
         f"Distance: {dist:6.2f} km  |  "
         f"Time: {fmt_time(time_s)}  |  "
         f"Calories: {kcal:5.0f} kcal  |  "
-        f"MET: {met:4.1f}  |  "
+        f"{met_part}"
         f"Elevation: {elev:5.0f} m{suffix}"
     )
 
@@ -157,6 +161,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
     cumulative_kcal = 0.0
     prev_time_s = 0
     max_speed = 0.0
+    max_met = 1.0
     last_display = None
     disconnected_printed = False
     training_saved = False
@@ -164,7 +169,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
 
     def save_training():
         save_settings(weight_kg, inclination_deg)
-        line = display_line(*last_display, max_speed=max_speed, suffix="\n")
+        line = display_line(*last_display, max_speed=max_speed, max_met=max_met, suffix="\n")
         with open("trainings.txt", "a") as f:
             f.write(line)
         print("  -> Readings saved to trainings.txt")
@@ -176,7 +181,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
             training_saved = True
 
     def notification_handler(sender, data: bytes):
-        nonlocal cumulative_kcal, prev_time_s, max_speed, last_display, disconnected_printed
+        nonlocal cumulative_kcal, prev_time_s, max_speed, max_met, last_display, disconnected_printed
 
         parsed = parse_treadmill_data(data)
         if not parsed:
@@ -202,6 +207,8 @@ async def run_monitor(device, weight_kg, inclination_deg):
 
         elevation_m = dist * 1000 * math.sin(math.radians(inclination_deg))
         current_met = compute_met(speed, inclination_deg)
+        if speed > 0:
+            max_met = max(max_met, current_met)
         last_display = (speed, dist, now_s, cumulative_kcal, elevation_m, current_met)
 
         print("\r" + display_line(*last_display, suffix="  "), end="", flush=True)
