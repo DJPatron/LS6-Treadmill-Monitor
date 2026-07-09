@@ -57,7 +57,7 @@ Calories: `(MET - 1) * weight(kg) * time(h)`
 - [x] **Live MET gauge — real-time MET value in display**
 - [x] **Connection animation — spinner during BLE scan and connection**
 - [ ] **Convert kcal to estimated fat grams lost**
-- [ ] **Avg speed calculation**
+- [ ] **Calculate avg speed and avg MET for last metrics**
 
 ## Acknowledgements
 

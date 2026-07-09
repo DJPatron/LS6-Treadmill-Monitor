@@ -169,7 +169,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
         line = display_line(*last_display, max_speed=max_speed, max_met=max_met, suffix="\n")
         with open("trainings.txt", "a") as f:
             f.write(line)
-        print("  -> Readings saved to trainings.txt")
+        print("Last metrics saved to trainings.txt")
 
     def try_save_training():
         nonlocal training_saved
@@ -191,7 +191,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
         if speed == 0.0 and dist == 0.0 and now_s == 0:
             if last_display is not None:
                 if not disconnected_printed:
-                    print("\nTreadmill stopped or disconnected — showing frozen readings:")
+                    print("\nTreadmill stopped or disconnected.")
                     disconnected_printed = True
                     try_save_training()
             return
