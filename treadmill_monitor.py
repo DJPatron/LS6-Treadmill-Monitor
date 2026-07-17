@@ -169,7 +169,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
         line = display_line(*last_display, max_speed=max_speed, max_met=max_met, suffix="\n")
         with open("trainings.txt", "a") as f:
             f.write(line)
-        print("Last metrics saved to trainings.txt")
+        print("\nLast metrics saved to trainings.txt")
 
     def try_save_training():
         nonlocal training_saved
@@ -178,7 +178,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
             training_saved = True
 
     def notification_handler(sender, data: bytes):
-        nonlocal cumulative_kcal, prev_time_s, max_speed, max_met, last_display, disconnected_printed
+        nonlocal cumulative_kcal, prev_time_s, max_speed, max_met, last_display, disconnected_printed, training_saved
 
         parsed = parse_treadmill_data(data)
         if not parsed:
@@ -194,9 +194,22 @@ async def run_monitor(device, weight_kg, inclination_deg):
                     print("\nTreadmill stopped or disconnected.")
                     disconnected_printed = True
                     try_save_training()
+                    cumulative_kcal = 0.0
+                    prev_time_s = 0
+                    max_speed = 0.0
+                    max_met = 1.0
+                    training_saved = False
             return
 
         disconnected_printed = False
+
+        if now_s < prev_time_s:
+            try_save_training()
+            cumulative_kcal = 0.0
+            prev_time_s = 0
+            max_speed = 0.0
+            max_met = 1.0
+            return
 
         if now_s > prev_time_s:
             cumulative_kcal += kcal_per_second(speed, weight_kg, inclination_deg) * (now_s - prev_time_s)
