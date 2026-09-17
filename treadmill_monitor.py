@@ -5,7 +5,10 @@ import asyncio
 import json
 import math
 import os
+import re
+import shutil
 import struct
+import sys
 from datetime import datetime
 from bleak import BleakScanner, BleakClient
 
@@ -94,6 +97,56 @@ def display_line(speed, dist, time_s, kcal, elev, met, suffix=" ", max_speed=Non
     )
 
 
+PANEL_INNER_WIDTH = 30
+PANEL_HEIGHT = 13
+
+TTY = sys.stdout.isatty()
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+RESET = "\x1b[0m" if TTY else ""
+BORDER_C = "\x1b[36m" if TTY else ""
+SEP_C = "\x1b[2;36m" if TTY else ""
+TS_C = "\x1b[2;37m" if TTY else ""
+VALUE_C = "\x1b[1;32m" if TTY else ""
+UNIT_C = "\x1b[2;36m" if TTY else ""
+
+
+def visible_len(s: str) -> int:
+    return len(ANSI_RE.sub("", s))
+
+
+def render_panel(speed, dist, time_s, kcal, elev, met, weight_kg, inclination_deg, first=False) -> None:
+    inner = PANEL_INNER_WIDTH
+
+    def row(content):
+        return "║" + content + " " * (inner - visible_len(content)) + "║"
+
+    def metric(label, value, unit=""):
+        text = f"{label:<11}{VALUE_C}{value:>8}{RESET}"
+        if unit:
+            text += f" {UNIT_C}{unit}{RESET}"
+        return text
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    rows = [
+        BORDER_C + "╔" + "═" * inner + "╗" + RESET,
+        row(TS_C + now + RESET),
+        row(SEP_C + "─" * inner + RESET),
+        row(metric("Time:", fmt_time(time_s))),
+        row(metric("Speed:", f"{speed:.1f}", "km/h")),
+        row(metric("Distance:", f"{dist:.2f}", "km")),
+        row(metric("Calories:", f"{kcal:.0f}", "kcal")),
+        row(metric("MET:", f"{met:.1f}")),
+        row(metric("Elevation:", f"{elev:.0f}", "m")),
+        row(SEP_C + "─" * inner + RESET),
+        row(metric("Mass:", f"{weight_kg:.1f}", "kg")),
+        row(metric("Inclination:", f"{inclination_deg:.1f}", "°")),
+        BORDER_C + "╚" + "═" * inner + "╝" + RESET,
+    ]
+    if not first:
+        print(f"\x1b[{PANEL_HEIGHT}A", end="")
+    print("\n".join(rows), flush=True)
+
+
 def ask_float(prompt, default, min_val, max_val, unit=""):
     raw = input(f"{prompt} (default {default}{unit}): ").strip()
     if not raw:
@@ -163,6 +216,8 @@ async def run_monitor(device, weight_kg, inclination_deg):
     disconnected_printed = False
     training_saved = False
     disconnect_event = asyncio.Event()
+    panel_mode = shutil.get_terminal_size().columns >= PANEL_INNER_WIDTH + 2
+    panel_printed = False
 
     def save_training():
         save_settings(weight_kg, inclination_deg)
@@ -179,6 +234,7 @@ async def run_monitor(device, weight_kg, inclination_deg):
 
     def notification_handler(sender, data: bytes):
         nonlocal cumulative_kcal, prev_time_s, max_speed, max_met, last_display, disconnected_printed, training_saved
+        nonlocal panel_printed
 
         parsed = parse_treadmill_data(data)
         if not parsed:
@@ -221,7 +277,11 @@ async def run_monitor(device, weight_kg, inclination_deg):
             max_met = max(max_met, current_met)
         last_display = (speed, dist, now_s, cumulative_kcal, elevation_m, current_met)
 
-        print("\r" + display_line(*last_display, suffix="  "), end="", flush=True)
+        if panel_mode:
+            render_panel(speed, dist, now_s, cumulative_kcal, elevation_m, current_met, weight_kg, inclination_deg, first=not panel_printed)
+            panel_printed = True
+        else:
+            print("\r" + display_line(*last_display, suffix="  "), end="", flush=True)
 
     print(f"Connecting to {device.name or device.address} …")
     client = BleakClient(device, disconnected_callback=lambda c: disconnect_event.set())
@@ -255,7 +315,9 @@ async def run_monitor(device, weight_kg, inclination_deg):
             pass
 
         await client.start_notify(TREADMILL_DATA_CHAR_UUID, notification_handler)
-        print("\nReceiving data (press Ctrl+C to stop) …\n")
+        if TTY:
+            print("\x1b[2J\x1b[H", end="")
+        print("Receiving data (press Ctrl+C to stop) …")
 
         await disconnect_event.wait()
         print("\nBLE connection lost.")
