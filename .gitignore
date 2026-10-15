@@ -5,3 +5,4 @@ trainings.txt
 __pycache__/
 settings.json
 calorie_table.md
+.DS_Store
